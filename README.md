@@ -234,7 +234,6 @@ if(y + dy < ballRadius) {
     alert("GAME OVER");
     document.location.reload();
 }
-
 Para terminar esta lección sólo nos falta detectar la colisión de la bola y la paleta para que pueda rebotar, volviendo hacia la zona de juego. La manera más sencilla de hacerlo es comprobar si el centro de la bola está entre los límites izquierdo y derecho de la paleta. Actualiza el último fragmento del código, el "if else" de antes, para que te quede así:
 
 if(y + dy < ballRadius) {
@@ -249,3 +248,217 @@ if(y + dy < ballRadius) {
     }
 }
 Si la bola toca el borde inferior del lienzo (Canvas) debemos comprobar si golpea la pala. Si es así, entonces rebota como el jugador se imagina que va a ocurrir; si no, el juego ha terminado.
+## LECCION 6
+Hemos cambiado la mecánica del juego y ahora ya podemos perder. Esto es genial porque significa que el juego finalmente se comporta como un juego. Sin embargo, pronto resultará aburrido si todo lo que puedes conseguir es hacer rebotar la pelota en las paredes y en la pala. Lo que el juego necesitamos es romper ladrillos con la bola. Ahora vamos a dibujar los ladrillos. El propósito principal de esta lección consiste en escribir unas pocas líneas de código para los ladrillos, utilizando un bucle anidado que recorra una matriz bidimensional. Pero, antes, necesitamos preparar unas variables que definan la información sobre los ladrillos, como su ancho y alto, filas y columnas, etc. Añade estas líneas a tu programa, debajo de las otras variables que has definido antes:
+
+var brickRowCount = 3;
+var brickColumnCount = 5;
+var brickWidth = 75;
+var brickHeight = 20;
+var brickPadding = 10;
+var brickOffsetTop = 30;
+var brickOffsetLeft = 30;
+Aquí hemos definido el número de filas (Row) y columnas (Column) de ladrillos, su ancho (Width) y alto (Height), el hueco entre los ladrillos para que no se toquen (Padding), y un margen superior (Top) e izquierdo (Left) para que no se dibujen tocando los bordes. Guardaremos nuestros ladrillos en una matriz bidimensional que contendrá las columnas (c) de los ladrillos. Cada columna contendrá, a su vez, toda la fila (r) de ladrillos. Cada ladrillo se va a representar con un objeto con las posiciones "x" e "y" en las que se dibujará.
+var bricks = [];
+for(c=0; c<brickColumnCount; c++) {
+    bricks[c] = [];
+    for(r=0; r<brickRowCount; r++) {
+        bricks[c][r] = { x: 0, y: 0 };
+    }
+}
+El código anterior pasará por las filas y las columnas y creará los ladrillos. TEN EN CUENTA que esos objetos que representan a los ladrillos también se utilizarán para detectar colisiones más adelante. Por si no lo terminas de entender... bricks[0][0] es el primer ladrillo (columna 0, fila 0) y se dibujará en "x" 0 e "y" 0. El siguiente ladrillo será el brick[0][1] (columna 0, fila 1) y se dibujará también en (0,0). Así, continuaremos hasta el final de la primera columna, que será el ladrillo bricks[0][2] porque hay 3 filas, de la 0 a la 2. Terminará así el bucle de dentro y seguirá el de fuera, valiendo ahora la "c" 1. Seguiremos recorriendo bricks[] hasta llegar a bricks[2][4], que es el último ladrillo.
+
+function drawBricks() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            bricks[c][r].x = 0;
+            bricks[c][r].y = 0;
+            ctx.beginPath();
+            ctx.rect(0, 0, brickWidth, brickHeight);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+    }
+}
+Viene a ser lo mismo de antes, sólo que hemos añadido ctx.rect() para dibujar un rectángulo por cada ladrillo, además de otras llamadas a funciones para que, efectivamente, se dibuje el rectángulo. Cada ladrillo se dibujará en la posición (0, 0), tendrá un ancho brickWidth y un alto de brickHeight. Estupendo pero... ¡estamos dibujando todos los ladrillos en el mismo sitio! ¡Eso no puede ser! Vamos a calcular en qué posición "x" e "y" se tiene que dibujar cada ladrillo así:
+
+var brickX = (c*(brickWidth+brickPadding))+brickOffsetLeft;
+var brickY = (r*(brickHeight+brickPadding))+brickOffsetTop;
+El primer ladrillo se dibujará arriba a la izquierda, concretamente en (brickoffsetLeft, brickOffsetTop), porque c y r valen 0. El siguiente ladrillo (columna 0, fila 1) se dibujará más abajo. Intenta hacer tú mismo los cálculos y verás cómo cada ladrillo de la misma columna se dibujará más abajo o más arriba según en qué fila se encuentre. También verás cómo cada ladrillo de la misma fila se dibujará más a la izquierda o a la derecha según en qué columna se encuentre.
+
+function drawBricks() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            var brickX = (c*(brickWidth+brickPadding))+brickOffsetLeft;
+            var brickY = (r*(brickHeight+brickPadding))+brickOffsetTop;
+            bricks[c][r].x = brickX;
+            bricks[c][r].y = brickY;
+            ctx.beginPath();
+            ctx.rect(brickX, brickY, brickWidth, brickHeight);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+    }
+}
+## LECCION 7
+Ya tenemos los ladrillos en la pantalla pero el juego todavía no es muy interesante, porque la bola los atraviesa. Tenemos que pensar una manera de detectar colisiones para que la bola pueda rebotar en los ladrillos y romperlos. Nosotros decidimos cómo implementar esto, por supuesto, pero puede ser complicado calcular si la bola está tocando el rectángulo o no, porque no hay funciones del <canvas> que sirvan para saberlo. En este tutorial vamos a hacerlo de la manera más fácil que existe: comprobaremos si el centro de la bola está tocando (colisionando) con cualquiera de los ladrillos. No siempre funcionará a la perfección y hay formas de detectar colisiones más sofisticadas que funcionan mejor, pero no nos interesa verlas porque estamos aprendiendo y tenemos que hacer las cosas fáciles. Una función para detectar colisionesSection Para lograr nuestro objetivo vamos a definir una función que, con un bucle, recorrerá todos los ladrillos y comparará la posición de cada uno con la posición de la bola, cada vez que se dibuje un fotograma. Para que el código sea más legible definiremos la variable "b" que almacenará el objeto ladrillo en cada vuelta de bucle:
+
+function collisionDetection() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            var b = bricks[c][r];
+            // calculations
+        }
+    }
+}
+Si el centro de la bola está dentro de las coordenadas de uno de nuestros ladrillos, cambiaremos la dirección de la bola. Se cumplirá que el centro de la bola está dentro de ladrillo si se cumplen al mismo tiempo estas cuatro condiciones:
+La posición "x" de la bola es mayor que la posición "x" del ladrillo
+La posición "x" de la bola es menor que la posición del ladrillo más el ancho del ladrillo
+La posición "y" de la bola es mayor que la posición "y" del ladrillo.
+La posición "y" de la bola es menor que la posición del ladrillo más su altura.
+Traducimos esto a JavaScript:
+
+function collisionDetection() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            var b = bricks[c][r];
+            if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight) {
+                dy = -dy;
+            }
+        }
+    }
+}
+Hacer que los ladrillos desaparezcan cuando reciben un golpeSection
+El código anterior funcionará correctamente y la bola cambiará de dirección. El problema es que los ladrillos siguen donde están. Tenemos que imaginar una forma de ocuparnos de los que ya hemos golpeado con la bola. Podemos hacerlo añadiendo un parámetro extra para indicar si queremos pintar cada ladrillo en la pantalla o no. En la parte del código donde inicializamos los ladrillos, añadiremos una propiedad status a cada ladrillo. Cambia tu código fijándote en la línea que está resaltada:
+
+var bricks = [];
+for(c=0; c<brickColumnCount; c++) {
+    bricks[c] = [];
+    for(r=0; r<brickRowCount; r++) {
+        bricks[c][r] = { x: 0, y: 0, status: 1 };
+    }
+} 
+A continuación consultaremos el "status" de cada ladrillo para saber si lo tenemos que dibujar o no. Si "status" vale 1, lo dibujaremos. Si vale 0, no lo dibujaremos porque habrá sido golpeado por la bola. Actualiza tu función drawBricks() para que quede así:
+
+function drawBricks() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            if(bricks[c][r].status == 1) {
+                var brickX = (c*(brickWidth+brickPadding))+brickOffsetLeft;
+                var brickY = (r*(brickHeight+brickPadding))+brickOffsetTop;
+                bricks[c][r].x = brickX;
+                bricks[c][r].y = brickY;
+                ctx.beginPath();
+                ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                ctx.fillStyle = "#0095DD";
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+    }
+} 
+ 
+Ahora tenemos que ocuparnos del valor de "status" en la función collisionDetection(): si el ladrillo está activo (status 1) comrpobaremos si hay colisión. Si hay colisión, pondremos el "status" de ese ladrillo a 0 para no volver a pintarlo.
+function collisionDetection() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            var b = bricks[c][r];
+            if(b.status == 1) {
+                if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight) {
+                    dy = -dy;
+                    b.status = 0;
+                }
+            }
+        }
+    }
+}
+## LECCION 8
+Si puedes ver el contador mientras juegas, puede que consigas impresionar a tus amigos. Necesitas una variable para guardar el contador. Añade esto a tu JavaScript, después de las otras definiciones de variables:
+var score = 0;
+También necesitas una función drawScore() para enseñar el contador por pantalla. Añade esto después de la función collisionDetection():
+
+function drawScore() {
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#0095DD";
+    ctx.fillText("Score: "+score, 8, 20);
+}
+Dibujar texto en el <canvas> es similar a dibujar un círculo o cualquier otra figura. La definición del tipo de letra (fuente) se hace igual que en CSS, puedes fijar el tamaño y fuente con el método font() method. Despúes utilizas fillStyle() para fijar el color y fillText() para escribir el texto y el lugar en el que se va a dibujar. El primer parámetro es el texto en si y los otros dos son las coordenadas.
+function collisionDetection() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            var b = bricks[c][r];
+            if(b.status == 1) {
+                if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight) {
+                    dy = -dy;
+                    b.status = 0;
+                    score++;
+                }
+            }
+        }
+    }
+} 
+drawScore();
+Mostrar un mensaje de victoria cuando se hayan destruido todos los ladrillosSection
+Lo de sumar puntos funciona, pero tiene un final. ¿Qué ocurrirá cuando no queden ladrillos? Precisamente ese es el principal objetivo del juego, tendrás que dibujar un mensaje de victoria. 
+function collisionDetection() {
+    for(c=0; c<brickColumnCount; c++) {
+        for(r=0; r<brickRowCount; r++) {
+            var b = bricks[c][r];
+            if(b.status == 1) {
+                if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight) {
+                    dy = -dy;
+                    b.status = 0;
+                    score++;
+                    if(score == brickRowCount*brickColumnCount) {
+                        alert("YOU WIN, CONGRATULATIONS!");
+                        document.location.reload();
+                    }
+                }
+            }
+        }
+    }
+}  
+Gracias a esto, los jugadores pueden ganar cuando rompen todos los ladrillos, que es muy importante. La función document.location.reload() vuelve a cargar la página y el juego empieza de nuevo, una vez se hace clic sobre el botón del alert().
+## LECCION 9
+document.addEventListener("mousemove", mouseMoveHandler, false);
+ Podemos cambiar la posición de la pala basándonos en las coordenadas del puntero del ratón. Eso es lo que hace la función siguiente
+function mouseMoveHandler(e) {
+    var relativeX = e.clientX - canvas.offsetLeft;
+    if(relativeX > 0 && relativeX < canvas.width) {
+        paddleX = relativeX - paddleWidth/2;
+    }
+}
+En esta función calculamos un valor relativeX, que es la posición horizontal del ratón en el "viewport" (e.clientX), menos la distancia entre el borde izquierdo del terreno de juego y el borde izquierdo del "viewport" (canvas.offsetLeft). Si el valor resultante es mayor que cero y menor que el ancho del terreno de juego, es que el ratón está dentro de los límites, y calculamos la posición de la paleta poniéndole el valor relativeX menos la mitad del ancho de la paleta, para que el movimiento sea de verdad relativo a la mitad de la paleta. Ahora, la paleta seguirá la posición del cursor del ratón pero, como restringimos el movimiento al <canvas>, no desaparecerá completamente por los lados.
+## LECCION 10
+	
+Siempre es posible mejorar cualquier juego que hagamos. Por ejemplo, podemos dar vidas al jugador. Así, aunque pierda la bola una o dos veces, todavía puede intentar derribar todo el muro. También podemos mejorar los aspectos gráficos. Dar vidas es bastante sencillo. Primero, añade una variable para guardar el número de vidas que tiene en cada momento.
+var lives = 3;
+Mostrar por pantalla el número de vidas es prácticamente lo mismo que mostrar el contador de puntos. Añade la función siguiente detrás de la función drawScore():
+
+function drawLives() {
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#0095DD";
+    ctx.fillText("Lives: "+lives, canvas.width-65, 20);
+}
+En lugar de terminar el juego inmediatamente, restaremos una vida hasta que ya no quede ninguna. También podemos colocar la bola y la paleta en la posición inicial cuando el jugador empiece con la vida siguiente. En la función draw().
+alert("GAME OVER");
+document.location.reload();
+... por estas otras:
+lives--;
+if(!lives) {
+    alert("GAME OVER");
+    document.location.reload();
+}
+else {
+    x = canvas.width/2;
+    y = canvas.height-30;
+    dx = 2;
+    dy = -2;
+    paddleX = (canvas.width-paddleWidth)/2;
+}
+Ahora, cuando la bola toca el fondo, restamos una vida. Si no queda ninguna, el jugador pierde y termina la partida. Si queda alguna, entonces colocamos la bola y la paleta en el centro, y hacemos que la bola vaya en la nueva dirección correcta y a la velocidad inicial. drawLives(); Ahora vamos a ocuparnos de algo que no es particular de este juego, sino de la forma en la que se muestran las imágenes en pantalla. requestAnimationFrame ayuda al navegador a refrescar la imagen mejor que con el método setInterval() que estamos utilizando.
+setInterval(draw, 10);
+draw(); 
+Y, ahora, al final de la función draw(), justo antes de la llave que la cierra, añade la línea siguiente, que hará que la función draw() se llame a sí misma una y otra vez: Ahora draw() se ejecuta una y otra vez con un bucle requestAnimationFrame() pero, en lugar de hacerlo cada 10 milisegundos, dejamos que sea el navegadro quien decida cada cuánto tiempo. El navegador sincronizará el refresco, es decir, el número de fotogramas por segundo, a lo que sea capaz la máquina que está ejecutando el juego. De este modo la animación será más eficiente y más suave que el viejo método setInterval().
